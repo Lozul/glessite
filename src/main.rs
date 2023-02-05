@@ -1,3 +1,4 @@
+use clap::Parser;
 use env_logger::Builder;
 use git2::Repository;
 use log::{error, info, warn, LevelFilter};
@@ -14,8 +15,14 @@ mod templates;
 
 const PUBLIC_DIR: &str = "public";
 
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Cli {}
+
 fn main() {
     setup_logger();
+
+    let cli = Cli::parse();
 
     let (sendr, recvr) = channel::<git2::Oid>();
 
