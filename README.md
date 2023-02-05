@@ -1,11 +1,10 @@
-# Glessite
+<img src="https://raw.githubusercontent.com/Lozul/glessite/8-update-readme/static/images/glessite_logo.svg" alt="Glessite" width=565>
+
+[![Rust](https://github.com/Lozul/glessite/actions/workflows/rust.yml/badge.svg)](https://github.com/Lozul/glessite/actions/workflows/rust.yml)
 
 A simple static site generator based on commits from a git repository.
 
 ## How to use
-
-> First of all, this is a work in progress, there is still case in the code
-> where the program will panic.
 
 The program expect to be launched within a git repository.
 If so, it will walk through the commit history and pick those whose title are
@@ -16,6 +15,17 @@ commit.
 
 All the generated files will be stored in a `public` folder in the current
 working directory.
+
+### CLI
+
+Glessite offers some options:
+
+```
+-r, --repository <REPOSITORY>  Repository to use, default to current working dir, must be a valid path to a directory containing a .git
+-o, --output-dir <OUTPUT_DIR>  Output directory, default to `public`
+-p, --prefix <PREFIX>          Prefix to filter posts from normal commits, detault to `POST: `
+-n, --no-prefix                If present, every commit will be used, prefix option is ignored
+```
 
 ### Workflow example
 
@@ -29,7 +39,7 @@ git commit --allow-empty -m "POST: Title" -m "Body of the post"
 2. Generate the site
 
 ```
-$ glessite
+glessite
 ```
 
 3. View the result by opening the generate web pages in a browser, for example
@@ -69,20 +79,13 @@ cargo install --path .
 cargo uninstall glessite
 ```
 
-## Roadmap
+## License
 
-- Less error prone
-    - [x] fail gracefully if cwd is not a repository
-    - [x] remove any use of panic at all
-- Options
-    - [x] choose the repository
-    - [x] choose the output path
-    - [x] choose the prefix
-    - [x] disable the use of a prefix, every commit should be used
-- Customisation
-    - [ ] overloading of theme
-    - [ ] overloading of templates
-    - [ ] suppport of light markup (unlikely)
+This projet is under the MIT License.
+
+The logo use the font [Source Code
+Pro](https://github.com/adobe-fonts/source-code-pro) released under the
+SIL Open Font License 1.1.
 
 ## Where does the name come from
 
