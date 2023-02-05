@@ -1,9 +1,12 @@
+use env_logger::Builder;
 use git2::Repository;
-use std::sync::mpsc::{channel, Receiver, Sender};
+use log::{error, info, warn, LevelFilter};
 use std::{
     fs::{create_dir_all, write},
     io::Error,
     path::Path,
+    process::exit,
+    sync::mpsc::{channel, Receiver, Sender},
     thread,
 };
 
@@ -12,10 +15,13 @@ mod templates;
 const PUBLIC_DIR: &str = "public";
 
 fn main() {
+    setup_logger();
+
     let (sendr, recvr) = channel::<git2::Oid>();
 
-    if create_dir_all(Path::new(PUBLIC_DIR).join("posts")).is_err() {
-        panic!("failed to create output folder");
+    if let Err(e) = create_dir_all(Path::new(PUBLIC_DIR).join("posts")) {
+        error!("Failed to create output folder: {}", e);
+        exit(1);
     }
 
     let handler = thread::spawn(move || {
@@ -26,37 +32,57 @@ fn main() {
     drop(sendr);
 
     if handler.join().is_err() {
-        panic!("cpt");
+        error!("Failed to join ensurer thread");
     }
+}
+
+fn setup_logger() {
+    let mut logger_builder = Builder::from_default_env();
+
+    logger_builder
+        .format_timestamp(None)
+        .filter(None, LevelFilter::Info)
+        .init();
 }
 
 fn browser(sender: &Sender<git2::Oid>) {
     let repo = match Repository::open(".") {
         Ok(repo) => repo,
-        Err(e) => panic!("failed to init: {}", e),
+        Err(e) => {
+            error!("Failed to open repo in browser: {}", e);
+            exit(1);
+        }
     };
 
     let mut revwalk = match repo.revwalk() {
         Ok(revwalk) => revwalk,
-        Err(e) => panic!("failed to init revwalk: {}", e),
+        Err(e) => {
+            error!("Failed to init revwalk: {}", e);
+            exit(1);
+        }
     };
 
-    if revwalk.push_head().is_err() {
-        panic!("failed to push head to revwalk");
+    if let Err(e) = revwalk.push_head() {
+        error!("Failed to push head to revwalk: {}", e);
+        exit(1);
     }
 
-    if revwalk.set_sorting(git2::Sort::TIME).is_err() {
-        panic!("failed to set sorting method of revwalk");
+    if let Err(e) = revwalk.set_sorting(git2::Sort::TIME) {
+        warn!("Failed to set sorting method of revwalk: {}", e);
     };
 
     for rev in revwalk {
         let oid = match rev {
             Ok(oid) => oid,
-            Err(e) => panic!("{}", e),
+            Err(e) => {
+                error!("{}", e);
+                continue;
+            }
         };
 
-        if sender.send(oid).is_err() {
-            panic!("failed to send oid");
+        if let Err(e) = sender.send(oid) {
+            error!("Failed to send oid to ensurer thread: {}", e);
+            continue;
         }
     }
 }
@@ -64,7 +90,10 @@ fn browser(sender: &Sender<git2::Oid>) {
 fn ensurer(receiver: &Receiver<git2::Oid>, output_dir: &str) {
     let repo = match Repository::open(".") {
         Ok(repo) => repo,
-        Err(e) => panic!("failed to init: {}", e),
+        Err(e) => {
+            error!("Failed to open repo in ensurer: {}", e);
+            exit(1);
+        }
     };
 
     let mut index: Vec<(String, String)> = Vec::new();
@@ -72,7 +101,10 @@ fn ensurer(receiver: &Receiver<git2::Oid>, output_dir: &str) {
     while let Ok(oid) = receiver.recv() {
         let commit = match repo.find_commit(oid) {
             Ok(commit) => commit,
-            Err(e) => panic!("failed to find commit: {}", e),
+            Err(e) => {
+                error!("Failed to find commit: {}", e);
+                continue;
+            }
         };
 
         let mut title = match commit.summary() {
@@ -94,18 +126,25 @@ fn ensurer(receiver: &Receiver<git2::Oid>, output_dir: &str) {
         let short_oid = shorten_oid(&oid);
 
         if let Err(e) = write_post(&short_oid, title, body, output_dir) {
-            eprintln!("write post failed: {}", e);
+            error!("Failed to write post ({}): {}", short_oid, e);
+            continue;
         }
+
+        info!("Post {} generated", short_oid);
 
         index.push((title.to_string(), short_oid.clone()));
     }
 
     if let Err(e) = write_index(&index, output_dir) {
-        eprintln!("failed to write index: {}", e);
+        error!("Failed to write index: {}", e);
+    } else {
+        info!("Index generated");
     }
 
     if let Err(e) = write_stylesheet(output_dir) {
-        eprintln!("failed to write stylesheet: {}", e);
+        error!("Failed to write style sheet: {}", e);
+    } else {
+        info!("Style sheet generated");
     }
 }
 
