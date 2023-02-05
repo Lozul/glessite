@@ -72,13 +72,13 @@ cargo uninstall glessite
 ## Roadmap
 
 - Less error prone
-    - [ ] fail gracefully if cwd is not a repository
-    - [ ] remove any use of panic at all
+    - [x] fail gracefully if cwd is not a repository
+    - [x] remove any use of panic at all
 - Options
-    - [ ] choose the repository
-    - [ ] choose the output path
-    - [ ] choose the prefix
-    - [ ] disable the use of a prefix, every commit should be used
+    - [x] choose the repository
+    - [x] choose the output path
+    - [x] choose the prefix
+    - [x] disable the use of a prefix, every commit should be used
 - Customisation
     - [ ] overloading of theme
     - [ ] overloading of templates
