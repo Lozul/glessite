@@ -32,6 +32,10 @@ struct Cli {
     /// Prefix to filter posts from normal commits, detault to `POST: `
     #[arg(short, long)]
     prefix: Option<String>,
+
+    /// If present, every commit will be used, prefix option is ignored
+    #[arg(short, long)]
+    no_prefix: bool,
 }
 
 fn main() {
@@ -59,7 +63,7 @@ fn main() {
         let repository = repository.clone();
 
         thread::spawn(move || {
-            ensurer(&recvr, &prefix, &repository, &output_dir);
+            ensurer(&recvr, &prefix, !cli.no_prefix, &repository, &output_dir);
         })
     };
 
@@ -122,7 +126,13 @@ fn browser(sender: &Sender<git2::Oid>, input_dir: &str) {
     }
 }
 
-fn ensurer(receiver: &Receiver<git2::Oid>, prefix: &str, input_dir: &str, output_dir: &str) {
+fn ensurer(
+    receiver: &Receiver<git2::Oid>,
+    prefix: &str,
+    use_prefix: bool,
+    input_dir: &str,
+    output_dir: &str,
+) {
     let repo = match Repository::open(input_dir) {
         Ok(repo) => repo,
         Err(e) => {
@@ -147,14 +157,16 @@ fn ensurer(receiver: &Receiver<git2::Oid>, prefix: &str, input_dir: &str, output
             None => continue,
         };
 
-        if !title.starts_with(prefix) {
-            continue;
-        }
+        if use_prefix {
+            if !title.starts_with(prefix) {
+                continue;
+            }
 
-        title = match title.strip_prefix(prefix) {
-            Some(title) => title,
-            None => continue,
-        };
+            title = match title.strip_prefix(prefix) {
+                Some(title) => title,
+                None => continue,
+            };
+        }
 
         let body = commit.body().unwrap_or("");
 
