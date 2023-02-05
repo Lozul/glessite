@@ -19,10 +19,14 @@ const PUBLIC_DIR: &str = "public";
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    /// Repository to use,
+    /// Repository to use, default to current working dir,
     /// must be a valid path to a directory containing a .git
     #[arg(short, long)]
     repository: Option<String>,
+
+    /// Output directory, default to `public`
+    #[arg(short, long)]
+    output_dir: Option<String>,
 }
 
 fn main() {
@@ -33,9 +37,12 @@ fn main() {
     let repository = cli.repository.unwrap_or_else(|| REPO_DIR.to_string());
     info!("Repository path: {}", repository);
 
+    let output_dir = cli.output_dir.unwrap_or_else(|| PUBLIC_DIR.to_string());
+    info!("Output directory: {}", output_dir);
+
     let (sendr, recvr) = channel::<git2::Oid>();
 
-    if let Err(e) = create_dir_all(Path::new(PUBLIC_DIR).join("posts")) {
+    if let Err(e) = create_dir_all(Path::new(&output_dir).join("posts")) {
         error!("Failed to create output folder: {}", e);
         exit(1);
     }
@@ -44,7 +51,7 @@ fn main() {
         let repository = repository.clone();
 
         thread::spawn(move || {
-            ensurer(&recvr, &repository, PUBLIC_DIR);
+            ensurer(&recvr, &repository, &output_dir);
         })
     };
 
