@@ -1,3 +1,4 @@
+use clap::Parser;
 use env_logger::Builder;
 use git2::Repository;
 use log::{error, info, warn, LevelFilter};
@@ -12,23 +13,61 @@ use std::{
 
 mod templates;
 
+const REPO_DIR: &str = ".";
 const PUBLIC_DIR: &str = "public";
+const POST_PREFIX: &str = "POST: ";
+
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    /// Repository to use, default to current working dir,
+    /// must be a valid path to a directory containing a .git
+    #[arg(short, long)]
+    repository: Option<String>,
+
+    /// Output directory, default to `public`
+    #[arg(short, long)]
+    output_dir: Option<String>,
+
+    /// Prefix to filter posts from normal commits, detault to `POST: `
+    #[arg(short, long)]
+    prefix: Option<String>,
+
+    /// If present, every commit will be used, prefix option is ignored
+    #[arg(short, long)]
+    no_prefix: bool,
+}
 
 fn main() {
     setup_logger();
 
+    let cli = Cli::parse();
+
+    let repository = cli.repository.unwrap_or_else(|| REPO_DIR.to_string());
+    info!("Repository path: {}", repository);
+
+    let output_dir = cli.output_dir.unwrap_or_else(|| PUBLIC_DIR.to_string());
+    info!("Output directory: {}", output_dir);
+
+    let prefix = cli.prefix.unwrap_or_else(|| POST_PREFIX.to_string());
+    info!("Post prefix: {}", prefix);
+
     let (sendr, recvr) = channel::<git2::Oid>();
 
-    if let Err(e) = create_dir_all(Path::new(PUBLIC_DIR).join("posts")) {
+    if let Err(e) = create_dir_all(Path::new(&output_dir).join("posts")) {
         error!("Failed to create output folder: {}", e);
         exit(1);
     }
 
-    let handler = thread::spawn(move || {
-        ensurer(&recvr, PUBLIC_DIR);
-    });
+    let handler = {
+        let repository = repository.clone();
 
-    browser(&sendr);
+        thread::spawn(move || {
+            ensurer(&recvr, &prefix, !cli.no_prefix, &repository, &output_dir);
+        })
+    };
+
+    browser(&sendr, &repository);
     drop(sendr);
 
     if handler.join().is_err() {
@@ -45,8 +84,8 @@ fn setup_logger() {
         .init();
 }
 
-fn browser(sender: &Sender<git2::Oid>) {
-    let repo = match Repository::open(".") {
+fn browser(sender: &Sender<git2::Oid>, input_dir: &str) {
+    let repo = match Repository::open(input_dir) {
         Ok(repo) => repo,
         Err(e) => {
             error!("Failed to open repo in browser: {}", e);
@@ -87,8 +126,14 @@ fn browser(sender: &Sender<git2::Oid>) {
     }
 }
 
-fn ensurer(receiver: &Receiver<git2::Oid>, output_dir: &str) {
-    let repo = match Repository::open(".") {
+fn ensurer(
+    receiver: &Receiver<git2::Oid>,
+    prefix: &str,
+    use_prefix: bool,
+    input_dir: &str,
+    output_dir: &str,
+) {
+    let repo = match Repository::open(input_dir) {
         Ok(repo) => repo,
         Err(e) => {
             error!("Failed to open repo in ensurer: {}", e);
@@ -112,14 +157,16 @@ fn ensurer(receiver: &Receiver<git2::Oid>, output_dir: &str) {
             None => continue,
         };
 
-        if !title.starts_with("POST: ") {
-            continue;
-        }
+        if use_prefix {
+            if !title.starts_with(prefix) {
+                continue;
+            }
 
-        title = match title.strip_prefix("POST: ") {
-            Some(title) => title,
-            None => continue,
-        };
+            title = match title.strip_prefix(prefix) {
+                Some(title) => title,
+                None => continue,
+            };
+        }
 
         let body = commit.body().unwrap_or("");
 
