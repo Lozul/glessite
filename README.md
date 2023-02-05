@@ -1,4 +1,4 @@
-# Glessite
+<img src="https://raw.githubusercontent.com/Lozul/glessite/8-update-readme/static/images/glessite_logo.svg" alt="Glessite" width=565>
 
 [![Rust](https://github.com/Lozul/glessite/actions/workflows/rust.yml/badge.svg)](https://github.com/Lozul/glessite/actions/workflows/rust.yml)
 
