@@ -13,16 +13,25 @@ use std::{
 
 mod templates;
 
+const REPO_DIR: &str = ".";
 const PUBLIC_DIR: &str = "public";
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
-struct Cli {}
+struct Cli {
+    /// Repository to use,
+    /// must be a valid path to a directory containing a .git
+    #[arg(short, long)]
+    repository: Option<String>,
+}
 
 fn main() {
     setup_logger();
 
     let cli = Cli::parse();
+
+    let repository = cli.repository.unwrap_or_else(|| REPO_DIR.to_string());
+    info!("Repository path: {}", repository);
 
     let (sendr, recvr) = channel::<git2::Oid>();
 
@@ -31,11 +40,15 @@ fn main() {
         exit(1);
     }
 
-    let handler = thread::spawn(move || {
-        ensurer(&recvr, PUBLIC_DIR);
-    });
+    let handler = {
+        let repository = repository.clone();
 
-    browser(&sendr);
+        thread::spawn(move || {
+            ensurer(&recvr, &repository, PUBLIC_DIR);
+        })
+    };
+
+    browser(&sendr, &repository);
     drop(sendr);
 
     if handler.join().is_err() {
@@ -52,8 +65,8 @@ fn setup_logger() {
         .init();
 }
 
-fn browser(sender: &Sender<git2::Oid>) {
-    let repo = match Repository::open(".") {
+fn browser(sender: &Sender<git2::Oid>, input_dir: &str) {
+    let repo = match Repository::open(input_dir) {
         Ok(repo) => repo,
         Err(e) => {
             error!("Failed to open repo in browser: {}", e);
@@ -94,8 +107,8 @@ fn browser(sender: &Sender<git2::Oid>) {
     }
 }
 
-fn ensurer(receiver: &Receiver<git2::Oid>, output_dir: &str) {
-    let repo = match Repository::open(".") {
+fn ensurer(receiver: &Receiver<git2::Oid>, input_dir: &str, output_dir: &str) {
+    let repo = match Repository::open(input_dir) {
         Ok(repo) => repo,
         Err(e) => {
             error!("Failed to open repo in ensurer: {}", e);
