@@ -15,6 +15,7 @@ mod templates;
 
 const REPO_DIR: &str = ".";
 const PUBLIC_DIR: &str = "public";
+const POST_PREFIX: &str = "POST: ";
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -27,6 +28,10 @@ struct Cli {
     /// Output directory, default to `public`
     #[arg(short, long)]
     output_dir: Option<String>,
+
+    /// Prefix to filter posts from normal commits, detault to `POST: `
+    #[arg(short, long)]
+    prefix: Option<String>,
 }
 
 fn main() {
@@ -40,6 +45,9 @@ fn main() {
     let output_dir = cli.output_dir.unwrap_or_else(|| PUBLIC_DIR.to_string());
     info!("Output directory: {}", output_dir);
 
+    let prefix = cli.prefix.unwrap_or_else(|| POST_PREFIX.to_string());
+    info!("Post prefix: {}", prefix);
+
     let (sendr, recvr) = channel::<git2::Oid>();
 
     if let Err(e) = create_dir_all(Path::new(&output_dir).join("posts")) {
@@ -51,7 +59,7 @@ fn main() {
         let repository = repository.clone();
 
         thread::spawn(move || {
-            ensurer(&recvr, &repository, &output_dir);
+            ensurer(&recvr, &prefix, &repository, &output_dir);
         })
     };
 
@@ -114,7 +122,7 @@ fn browser(sender: &Sender<git2::Oid>, input_dir: &str) {
     }
 }
 
-fn ensurer(receiver: &Receiver<git2::Oid>, input_dir: &str, output_dir: &str) {
+fn ensurer(receiver: &Receiver<git2::Oid>, prefix: &str, input_dir: &str, output_dir: &str) {
     let repo = match Repository::open(input_dir) {
         Ok(repo) => repo,
         Err(e) => {
@@ -139,11 +147,11 @@ fn ensurer(receiver: &Receiver<git2::Oid>, input_dir: &str, output_dir: &str) {
             None => continue,
         };
 
-        if !title.starts_with("POST: ") {
+        if !title.starts_with(prefix) {
             continue;
         }
 
-        title = match title.strip_prefix("POST: ") {
+        title = match title.strip_prefix(prefix) {
             Some(title) => title,
             None => continue,
         };
