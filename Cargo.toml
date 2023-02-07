@@ -1,11 +1,15 @@
 [package]
 name = "glessite"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 authors = ["Louis Gasnault"]
 description = "A simple static site generator based on a git repository commits."
 readme = "README.md"
 license = "MIT"
+license-file = "LICENSE"
+repository = "https://github.com/Lozul/glessite"
+homepage = "https://github.com/Lozul/glessite"
+keywords = ["site-generator", "git", "cli"]
 
 [dependencies]
 clap = { version = "4.1.4", features = ["derive"] }
