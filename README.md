@@ -52,13 +52,18 @@ python -m http.server --directory public
 
 ## How to build and install
 
-**NOTE:** As this projet is more a proof of concept than a finished tool, it is
-not published on crates.io.
-Therefore, the installation process is manual and without guarantee of success.
-
 1. Install Rust, this documentation assume that you have access to the `cargo`
    command
 
+### With [crates.io](https://crates.io/crates/glessite)
+
+2. Install the crate
+
+```
+cargo install glessite
+```
+
+### Manually
 2. Download the repository and compile:
 
 ```
